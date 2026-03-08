@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}设置 - 房贷记账{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Scheduler Config -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header"><h6 class="mb-0">定时任务配置</h6></div>
+            <div class="card-body">
+                <form method="POST" action="/settings">
+                    <input type="hidden" name="action" value="update_scheduler">
+                    <div class="mb-3">
+                        <label class="form-label">当前月供金额 (元)</label>
+                        <input type="number" name="monthly_amount" class="form-control" step="0.01"
+                               value="{{ config.current_monthly_amount|float }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">扣款日 (每月第几天)</label>
+                        <input type="number" name="payment_day" class="form-control" min="1" max="31"
+                               value="{{ config.payment_day }}">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="is_enabled" class="form-check-input" id="isEnabled"
+                               {% if config.is_enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="isEnabled">启用自动记账</label>
+                    </div>
+                    {% if config.last_run_at %}
+                    <p class="text-muted small">上次执行: {{ config.last_run_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary">保存配置</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- CSV Import -->
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header"><h6 class="mb-0">数据导入</h6></div>
+            <div class="card-body">
+                <form method="POST" action="/settings" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="import_csv">
+                    <div class="mb-3">
+                        <label class="form-label">CSV 文件 (钱迹导出格式)</label>
+                        <input type="file" name="csv_file" class="form-control" accept=".csv">
+                    </div>
+                    <p class="text-muted small">
+                        支持钱迹导出的 CSV 格式，通过备注字段自动识别类型（提前还款/契税/月供）。
+                        已导入的记录不会重复导入。
+                    </p>
+                    <button type="submit" class="btn btn-success">导入</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Info -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header"><h6 class="mb-0">API 信息</h6></div>
+            <div class="card-body">
+                <p class="text-muted small mb-2">REST API 供 Telegram Bot 或其他客户端调用，需在请求头中带上 <code>X-API-Key</code>。</p>
+                <table class="table table-sm table-bordered mb-0">
+                    <thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead>
+                    <tbody>
+                        <tr><td>GET</td><td>/api/v1/payments</td><td>查询还款记录 (?year=&type=)</td></tr>
+                        <tr><td>POST</td><td>/api/v1/payments</td><td>新增还款记录</td></tr>
+                        <tr><td>PUT</td><td>/api/v1/payments/:id</td><td>修改记录</td></tr>
+                        <tr><td>DELETE</td><td>/api/v1/payments/:id</td><td>删除记录</td></tr>
+                        <tr><td>GET</td><td>/api/v1/stats/summary</td><td>汇总统计</td></tr>
+                        <tr><td>GET</td><td>/api/v1/stats/trend</td><td>月度趋势数据</td></tr>
+                        <tr><td>GET/PUT</td><td>/api/v1/scheduler/config</td><td>定时任务配置</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
