@@ -3,8 +3,8 @@
 
 {% block content %}
 <!-- Add Record -->
-<div class="card shadow-sm mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
+<div class="card shadow-sm mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center py-2">
         <h6 class="mb-0">添加记录</h6>
         <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#addForm">
             展开
@@ -13,16 +13,16 @@
     <div class="collapse" id="addForm">
         <div class="card-body">
             <form method="POST" action="/records/add">
-                <div class="row g-3">
-                    <div class="col-md-3">
+                <div class="row g-2 g-md-3">
+                    <div class="col-6 col-md-3">
                         <label class="form-label">日期</label>
                         <input type="date" name="date" class="form-control" required>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-6 col-md-2">
                         <label class="form-label">金额</label>
                         <input type="number" name="amount" class="form-control" step="0.01" required>
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-6 col-md-2">
                         <label class="form-label">类型</label>
                         <select name="payment_type" class="form-select">
                             {% for key, label in payment_types.items() %}
@@ -30,11 +30,11 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-6 col-md-3">
                         <label class="form-label">备注</label>
                         <input type="text" name="notes" class="form-control">
                     </div>
-                    <div class="col-md-2 d-flex align-items-end">
+                    <div class="col-12 col-md-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">添加</button>
                     </div>
                 </div>
@@ -44,9 +44,9 @@
 </div>
 
 <!-- Filters -->
-<div class="card shadow-sm mb-4">
+<div class="card shadow-sm mb-3">
     <div class="card-body py-2">
-        <form method="GET" action="/records" class="row g-2 align-items-center">
+        <form method="GET" action="/records" class="row g-2 align-items-center filter-bar">
             <div class="col-auto">
                 <select name="year" class="form-select form-select-sm">
                     <option value="">全部年份</option>
@@ -70,8 +70,8 @@
     </div>
 </div>
 
-<!-- Records Table -->
-<div class="card shadow-sm">
+<!-- Desktop: Table -->
+<div class="card shadow-sm records-table">
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
             <thead class="table-light">
@@ -117,10 +117,44 @@
     </div>
 </div>
 
+<!-- Mobile: Card List -->
+<div class="records-cards">
+    {% for p in pagination.items %}
+    <div class="record-card type-{{ p.payment_type }} shadow-sm">
+        <div class="rc-top">
+            <span class="rc-amount">¥{{ "{:,.2f}".format(p.amount|float) }}</span>
+            <span class="badge badge-{{ p.payment_type }}">{{ p.TYPES[p.payment_type] }}</span>
+        </div>
+        <div class="rc-meta">
+            <span class="rc-date">{{ p.date.strftime('%Y-%m-%d') }}</span>
+            <span>{{ p.notes or '' }}</span>
+        </div>
+        <div class="mt-2 d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary flex-fill" data-bs-toggle="modal"
+                    data-bs-target="#editModal"
+                    data-id="{{ p.id }}"
+                    data-date="{{ p.date.strftime('%Y-%m-%d') }}"
+                    data-amount="{{ p.amount|float }}"
+                    data-type="{{ p.payment_type }}"
+                    data-notes="{{ p.notes or '' }}">
+                编辑
+            </button>
+            <form method="POST" action="/records/{{ p.id }}/delete" class="flex-fill"
+                  onsubmit="return confirm('确认删除？')">
+                <button class="btn btn-sm btn-outline-danger w-100">删除</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+    {% if not pagination.items %}
+    <div class="text-center text-muted py-4">暂无记录</div>
+    {% endif %}
+</div>
+
 <!-- Pagination -->
 {% if pagination.pages > 1 %}
 <nav class="mt-3">
-    <ul class="pagination justify-content-center">
+    <ul class="pagination justify-content-center pagination-sm">
         {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
         {% if p %}
         <li class="page-item {% if p == pagination.page %}active{% endif %}">

@@ -1,9 +1,14 @@
 :root {
     --primary: #4e73df;
+    --green: #1cc88a;
+    --yellow: #f6c23e;
+    --red: #e74a3b;
 }
 body {
     background-color: #f8f9fc;
 }
+
+/* ── Stat Cards ── */
 .stat-card {
     border-left: 4px solid var(--primary);
     border-radius: 0.35rem;
@@ -16,18 +21,85 @@ body {
 .stat-card .stat-label {
     font-size: 0.85rem;
     color: #888;
-    text-transform: uppercase;
 }
-.stat-card.prepayment { border-left-color: #1cc88a; }
-.stat-card.deed-tax { border-left-color: #f6c23e; }
-.stat-card.total { border-left-color: #e74a3b; }
+.stat-card.prepayment { border-left-color: var(--green); }
+.stat-card.deed-tax   { border-left-color: var(--yellow); }
+.stat-card.total      { border-left-color: var(--red); }
+
+/* ── Charts ── */
 .chart-container {
     position: relative;
     height: 300px;
 }
+
+/* ── Badges ── */
+.badge-monthly    { background-color: var(--primary); }
+.badge-prepayment { background-color: var(--green); }
+.badge-deed_tax   { background-color: var(--yellow); color: #333; }
+.badge-other      { background-color: #858796; }
+
+/* ── Table ── */
 .table th { white-space: nowrap; }
-.badge-monthly { background-color: #4e73df; }
-.badge-prepayment { background-color: #1cc88a; }
-.badge-deed_tax { background-color: #f6c23e; color: #333; }
-.badge-other { background-color: #858796; }
 .navbar-brand { font-weight: 700; }
+
+/* ── Record Cards (mobile list view) ── */
+.record-card {
+    border-left: 4px solid var(--primary);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: #fff;
+    margin-bottom: 0.5rem;
+}
+.record-card.type-prepayment { border-left-color: var(--green); }
+.record-card.type-deed_tax   { border-left-color: var(--yellow); }
+.record-card.type-other      { border-left-color: #858796; }
+
+.record-card .rc-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+.record-card .rc-amount {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #333;
+}
+.record-card .rc-date {
+    font-size: 0.8rem;
+    color: #999;
+}
+.record-card .rc-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+    color: #888;
+}
+
+/* ── Desktop: hide card list, show table ── */
+.records-cards { display: none; }
+.records-table { display: block; }
+
+/* ── Mobile (<768px) ── */
+@media (max-width: 767.98px) {
+    /* Navbar compact */
+    .navbar { margin-bottom: 0.75rem !important; }
+    .container { padding-left: 12px; padding-right: 12px; }
+
+    /* Stat cards: 2-col grid, smaller text */
+    .stat-card { padding: 0.6rem 0.75rem !important; }
+    .stat-card .stat-value { font-size: 1.15rem; }
+    .stat-card .stat-label { font-size: 0.75rem; }
+
+    /* Charts: taller for readability, full width */
+    .chart-container { height: 220px; }
+
+    /* Records: card view on mobile, hide table */
+    .records-table { display: none !important; }
+    .records-cards { display: block !important; }
+
+    /* Filters: full width selects */
+    .filter-bar .col-auto { flex: 1; }
+    .filter-bar select { width: 100%; }
+}

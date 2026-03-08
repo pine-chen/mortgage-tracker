@@ -1,6 +1,6 @@
 # 房贷记账 Mortgage Tracker
 
-个人房贷记账 Web 应用，支持手动记账、CSV 导入、自动月供记录、统计图表展示，并提供 REST API 供 Telegram Bot 对接。
+个人房贷记账 Web 应用，支持手动记账、CSV 导入、自动月供记录、统计图表展示，并提供 REST API 供 Telegram Bot 对接。移动端友好，适合手机上通过 Bot 记账后随时查看。
 
 ## 快速开始
 
@@ -20,27 +20,32 @@ python app.py
 
 ```
 mortgage-tracker/
-├── app.py                    # Flask 应用入口
-├── config.py                 # 配置（数据库、API Key、定时任务）
+├── app.py                    # Flask 应用入口（含 Basic Auth、日志、Scheduler 开关）
+├── config.py                 # 配置（数据库、API Key、Web 登录、定时任务）
 ├── models.py                 # 数据模型（Payment, SchedulerConfig）
 ├── import_csv.py             # CSV 导入脚本
-├── requirements.txt
+├── deploy.sh                 # 一键部署脚本（init/start/stop/restart/backup/logs）
+├── nginx.conf.example        # Nginx 反向代理配置模板
+├── requirements.txt          # flask, flask-sqlalchemy, apscheduler, pandas, gunicorn
+├── .gitignore
 ├── routes/
 │   ├── __init__.py           # Blueprint 注册
 │   ├── views.py              # 页面路由（仪表盘、账单、设置）
-│   └── api.py                # REST API（X-API-Key 认证）
+│   └── api.py                # REST API（X-API-Key 认证，统一 JSON 响应格式）
 ├── services/
+│   ├── __init__.py
 │   ├── payment_service.py    # 业务逻辑（CRUD、统计、金额变更检测）
 │   └── scheduler_service.py  # APScheduler 自动月供记录
 ├── templates/
-│   ├── base.html             # 公共布局
-│   ├── index.html            # 统计仪表盘（Chart.js 图表）
-│   ├── records.html          # 账单列表（增删改查 + 筛选）
+│   ├── base.html             # 公共布局（响应式导航栏）
+│   ├── index.html            # 统计仪表盘（Chart.js，移动端适配）
+│   ├── records.html          # 账单列表（桌面表格 / 手机卡片双视图）
 │   └── settings.html         # 定时任务配置 + CSV 导入
 ├── static/
-│   └── style.css
-└── data/
-    └── mortgage.db           # SQLite 数据库（运行时自动创建）
+│   └── style.css             # 响应式样式（含移动端断点）
+├── data/                     # SQLite 数据库（运行时创建）
+├── logs/                     # 日志文件（RotatingFileHandler）
+└── backups/                  # 数据库备份（deploy.sh backup）
 ```
 
 ## 功能说明
@@ -48,17 +53,17 @@ mortgage-tracker/
 ### 统计仪表盘 `/`
 
 - 汇总卡片：累计还款总额、月供笔数/总额、提前还款总额、当前月供金额
-- 折线图：月供金额走势（阶梯线）+ 提前还款/契税柱状图（共用 Y 轴）
+- 折线图：月供金额走势（阶梯线）+ 提前还款/契税柱状图（共用 Y 轴，柱上标注金额）
 - 饼图：还款类型占比
 - 柱状图：年度还款对比（堆叠）
-- 近期记录表
+- 近期记录（桌面端表格，手机端卡片列表）
 
 ### 账单记录 `/records`
 
-- 账单列表，支持按年份、类型筛选，分页展示
-- 添加记录（展开表单）
-- 编辑记录（弹窗）
-- 删除记录（确认提示）
+- 桌面端：标准表格视图，含编辑/删除操作列
+- 手机端：卡片列表视图，左侧色条标识类型，按钮全宽易点击
+- 按年份、类型筛选，分页展示
+- 添加记录（展开表单）、编辑（弹窗）、删除（确认提示）
 - 手动添加月供时，如果金额与当前配置不同，会提示"月供金额变更"
 
 ### 设置 `/settings`
@@ -74,6 +79,24 @@ mortgage-tracker/
 2. 本月是否已有月供记录（幂等，不重复）
 3. 按配置金额自动创建 `source=auto` 的记录
 4. `misfire_grace_time=86400`：服务重启后自动补录
+
+可通过环境变量 `SCHEDULER_ENABLED=0` 禁用（多 worker 部署时避免重复执行）。
+
+### 移动端适配
+
+主要使用场景：通过 TG Bot 在手机上操作，Web 界面用于查看。因此做了以下移动端优化：
+
+- **统计卡片**：2x2 网格布局，紧凑字号
+- **图表**：全宽显示，字体/标签自动缩小，Y 轴自动用"万"为单位
+- **账单列表**：自动切换为卡片视图，左侧色条标识类型（蓝=月供，绿=提前还款，黄=契税），编辑/删除按钮全宽
+- **筛选栏**：下拉框自动撑满屏幕宽度
+- **分页**：使用小尺寸分页器
+
+### 安全特性
+
+- **Web 界面 Basic Auth**：设置 `MORTGAGE_WEB_USER` + `MORTGAGE_WEB_PASS` 环境变量即启用，API 路由不受影响
+- **API Key 认证**：所有 `/api/v1/*` 端点需 `X-API-Key` 请求头
+- **日志审计**：RotatingFileHandler，5MB 自动轮转保留 3 份，写入 `logs/app.log`
 
 ## 服务器部署（腾讯云 Ubuntu）
 
@@ -95,6 +118,7 @@ cd mortgage-tracker
 ### 第二步：初始化
 
 ```bash
+chmod +x deploy.sh
 ./deploy.sh init
 ```
 
@@ -122,7 +146,7 @@ SCHEDULER_ENABLED=1
 
 ```bash
 ./deploy.sh import /path/to/房贷账单.csv   # 导入 CSV
-./deploy.sh start                          # 启动 Gunicorn
+./deploy.sh start                          # 启动 Gunicorn（单 worker，daemon）
 ./deploy.sh status                         # 检查状态
 ```
 
@@ -142,12 +166,13 @@ apt install certbot python3-certbot-nginx
 certbot --nginx -d your-domain.com
 ```
 
-### 第六步：开机自启（crontab 方式，简单可靠）
+### 第六步：开机自启 + 自动备份
 
 ```bash
 crontab -e
 # 添加：
 @reboot cd /opt/mortgage-tracker && ./deploy.sh start
+0 0 * * 0 cd /opt/mortgage-tracker && ./deploy.sh backup
 ```
 
 ### 日常运维
@@ -156,16 +181,8 @@ crontab -e
 ./deploy.sh status    # 查看运行状态
 ./deploy.sh logs      # 查看实时日志
 ./deploy.sh restart   # 重启
-./deploy.sh backup    # 手动备份数据库
+./deploy.sh backup    # 手动备份数据库（保留最近 10 份）
 ./deploy.sh update    # git pull + 重装依赖
-```
-
-自动备份（每周日凌晨）：
-
-```bash
-crontab -e
-# 添加：
-0 0 * * 0 cd /opt/mortgage-tracker && ./deploy.sh backup
 ```
 
 ## REST API
@@ -176,6 +193,7 @@ crontab -e
 
 ```json
 {"ok": true, "data": {...}}           // 成功
+{"ok": true, "message": "已删除"}     // 成功（无数据）
 {"ok": false, "error": "错误信息"}     // 失败
 ```
 
@@ -189,7 +207,7 @@ curl -H "X-API-Key: your-key" http://localhost:5001/api/v1/payments
 curl -X POST -H "X-API-Key: your-key" -H "Content-Type: application/json" \
   -d '{"date":"2026-03-18","amount":4230,"payment_type":"monthly","notes":""}' \
   http://localhost:5001/api/v1/payments
-# 返回含 amount_changed 字段，TG Bot 可据此提示用户更新月供配置
+# 返回 data 中含 amount_changed 字段，TG Bot 可据此提示用户更新月供配置
 
 # 修改记录
 curl -X PUT -H "X-API-Key: your-key" -H "Content-Type: application/json" \
@@ -224,15 +242,24 @@ curl -X PUT -H "X-API-Key: your-key" -H "Content-Type: application/json" \
 
 ### Telegram Bot 对接
 
-Bot 通过 REST API 与本应用通信，典型交互流程：
+Bot 通过 REST API 与本应用通信，典型交互场景：
 
 ```
-用户 → TG Bot: "记一笔房贷 4230"
-TG Bot → API:  POST /api/v1/payments {date, amount, payment_type}
-API → TG Bot:  {id, amount_changed: true}
-TG Bot → 用户: "已记录。检测到月供金额变更，是否更新自动记账金额？"
-用户 → TG Bot: "是"
-TG Bot → API:  PUT /api/v1/scheduler/config {current_monthly_amount: 4230}
+用户: "记一笔提前还款 10000"
+Bot → POST /api/v1/payments {"date":"2026-03-08","amount":10000,"payment_type":"prepayment"}
+Bot → 用户: "已记录提前还款 ¥10,000"
+
+用户: "月供从下月开始改为 4100"
+Bot → PUT /api/v1/scheduler/config {"current_monthly_amount":4100}
+Bot → 用户: "已更新，下次自动记账金额为 ¥4,100"
+
+用户: "查看最近账单"
+Bot → GET /api/v1/payments?limit=5
+Bot → 用户: 返回最近 5 条记录摘要
+
+用户: "删除刚刚的记录"
+Bot → DELETE /api/v1/payments/{last_id}
+Bot → 用户: "已删除"
 ```
 
 ## 数据模型
@@ -262,10 +289,12 @@ TG Bot → API:  PUT /api/v1/scheduler/config {current_monthly_amount: 4230}
 
 ## 数据备份
 
-数据库为单文件 `data/mortgage.db`，备份只需复制该文件：
-
 ```bash
-cp data/mortgage.db data/mortgage_backup_$(date +%Y%m%d).db
+# 手动备份
+./deploy.sh backup
+
+# 自动备份（crontab，每周日凌晨，保留最近 10 份）
+0 0 * * 0 cd /opt/mortgage-tracker && ./deploy.sh backup
 ```
 
 ---
@@ -507,15 +536,10 @@ class BaseFetcher(ABC):
 
 # 规则示例：关键词 → 统一分类
 CATEGORY_RULES = [
-    # 房贷相关
     ({'keywords': ['房贷', '贷款', '月供', '公积金贷款'], 'category': '房贷'}),
-    # 餐饮
     ({'keywords': ['美团', '饿了么', '麦当劳', '星巴克', '餐厅'], 'category': '餐饮'}),
-    # 交通
     ({'keywords': ['滴滴', '地铁', '公交', '加油', '停车'], 'category': '交通'}),
-    # 购物
     ({'keywords': ['淘宝', '京东', '拼多多', '天猫'], 'category': '购物'}),
-    # 转账（不计入收支统计）
     ({'keywords': ['转账', '余额宝', '理财'], 'category': '转账'}),
 ]
 
@@ -576,4 +600,3 @@ class Config:
     FETCH_ALIPAY_ENABLED = False
     FETCH_WECHAT_ENABLED = False
 ```
-# mortgage-tracker

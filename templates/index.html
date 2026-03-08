@@ -3,82 +3,98 @@
 
 {% block content %}
 <!-- Summary Cards -->
-<div class="row g-3 mb-4">
-    <div class="col-md-3 col-sm-6">
-        <div class="card stat-card total shadow-sm p-3">
+<div class="row g-2 g-md-3 mb-3 mb-md-4">
+    <div class="col-6 col-md-3">
+        <div class="card stat-card total shadow-sm p-2 p-md-3">
             <div class="stat-label">累计还款总额</div>
             <div class="stat-value">¥{{ "{:,.0f}".format(stats.total_amount) }}</div>
         </div>
     </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card stat-card shadow-sm p-3">
+    <div class="col-6 col-md-3">
+        <div class="card stat-card shadow-sm p-2 p-md-3">
             <div class="stat-label">月供 ({{ stats.monthly_count }}笔)</div>
             <div class="stat-value">¥{{ "{:,.0f}".format(stats.monthly_total) }}</div>
         </div>
     </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card stat-card prepayment shadow-sm p-3">
+    <div class="col-6 col-md-3">
+        <div class="card stat-card prepayment shadow-sm p-2 p-md-3">
             <div class="stat-label">提前还款 ({{ stats.prepayment_count }}笔)</div>
             <div class="stat-value">¥{{ "{:,.0f}".format(stats.prepayment_total) }}</div>
         </div>
     </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card stat-card deed-tax shadow-sm p-3">
+    <div class="col-6 col-md-3">
+        <div class="card stat-card deed-tax shadow-sm p-2 p-md-3">
             <div class="stat-label">当前月供金额</div>
             <div class="stat-value">¥{{ "{:,.0f}".format(stats.current_monthly_amount) }}</div>
         </div>
     </div>
 </div>
 
-<!-- Charts Row 1 -->
-<div class="row g-3 mb-4">
-    <div class="col-lg-8">
-        <div class="card shadow-sm p-3">
-            <h6 class="mb-3">月供金额走势</h6>
-            <div class="chart-container">
-                <canvas id="trendChart"></canvas>
-            </div>
-        </div>
+<!-- Trend Chart (full width on mobile) -->
+<div class="card shadow-sm p-2 p-md-3 mb-3 mb-md-4">
+    <h6 class="mb-2 mb-md-3">月供金额走势</h6>
+    <div class="chart-container">
+        <canvas id="trendChart"></canvas>
     </div>
-    <div class="col-lg-4">
-        <div class="card shadow-sm p-3">
-            <h6 class="mb-3">还款类型占比</h6>
+</div>
+
+<!-- Pie + Yearly side by side (stack on mobile) -->
+<div class="row g-2 g-md-3 mb-3 mb-md-4">
+    <div class="col-12 col-md-5">
+        <div class="card shadow-sm p-2 p-md-3">
+            <h6 class="mb-2 mb-md-3">还款类型占比</h6>
             <div class="chart-container">
                 <canvas id="pieChart"></canvas>
             </div>
         </div>
     </div>
-</div>
-
-<!-- Charts Row 2 -->
-<div class="row g-3 mb-4">
-    <div class="col-lg-6">
-        <div class="card shadow-sm p-3">
-            <h6 class="mb-3">年度还款对比</h6>
+    <div class="col-12 col-md-7">
+        <div class="card shadow-sm p-2 p-md-3">
+            <h6 class="mb-2 mb-md-3">年度还款对比</h6>
             <div class="chart-container">
                 <canvas id="yearlyChart"></canvas>
             </div>
         </div>
     </div>
-    <div class="col-lg-6">
-        <div class="card shadow-sm p-3">
-            <h6 class="mb-3">近期记录</h6>
-            <table class="table table-sm table-hover mb-0">
-                <thead>
-                    <tr><th>日期</th><th>类型</th><th>金额</th><th>备注</th></tr>
-                </thead>
-                <tbody>
-                {% for p in recent %}
-                <tr>
-                    <td>{{ p.date.strftime('%Y-%m-%d') }}</td>
-                    <td><span class="badge badge-{{ p.payment_type }}">{{ p.TYPES[p.payment_type] }}</span></td>
-                    <td>¥{{ "{:,.2f}".format(p.amount|float) }}</td>
-                    <td>{{ p.notes or '-' }}</td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+</div>
+
+<!-- Recent Records -->
+<div class="card shadow-sm p-2 p-md-3 mb-3">
+    <h6 class="mb-2 mb-md-3">近期记录</h6>
+
+    <!-- Desktop: table -->
+    <div class="records-table">
+        <table class="table table-sm table-hover mb-0">
+            <thead>
+                <tr><th>日期</th><th>类型</th><th>金额</th><th>备注</th></tr>
+            </thead>
+            <tbody>
+            {% for p in recent %}
+            <tr>
+                <td>{{ p.date.strftime('%Y-%m-%d') }}</td>
+                <td><span class="badge badge-{{ p.payment_type }}">{{ p.TYPES[p.payment_type] }}</span></td>
+                <td>¥{{ "{:,.2f}".format(p.amount|float) }}</td>
+                <td>{{ p.notes or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Mobile: card list -->
+    <div class="records-cards">
+        {% for p in recent %}
+        <div class="record-card type-{{ p.payment_type }}">
+            <div class="rc-top">
+                <span class="rc-amount">¥{{ "{:,.2f}".format(p.amount|float) }}</span>
+                <span class="badge badge-{{ p.payment_type }}">{{ p.TYPES[p.payment_type] }}</span>
+            </div>
+            <div class="rc-meta">
+                <span class="rc-date">{{ p.date.strftime('%Y-%m-%d') }}</span>
+                <span>{{ p.notes or '' }}</span>
+            </div>
         </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}
@@ -90,11 +106,11 @@
 const trend = {{ trend | tojson }};
 const yearly = {{ yearly | tojson }};
 const typeDist = {{ type_dist | tojson }};
+const isMobile = window.innerWidth < 768;
 
-// Trend chart — dual Y-axis
+// Trend chart
 const trendMonths = trend.map(t => t.month);
 const trendMonthly = trend.map(t => t.monthly || null);
-// Only show bar values for months that have prepayment/deed_tax
 const trendExtra = trend.map(t => (t.prepayment || 0) + (t.deed_tax || 0) || null);
 const trendExtraLabels = trend.map(t => {
     const parts = [];
@@ -120,7 +136,7 @@ new Chart(document.getElementById('trendChart'), {
                 borderWidth: 2.5,
                 fill: true,
                 stepped: 'before',
-                pointRadius: 3,
+                pointRadius: isMobile ? 2 : 3,
                 pointBackgroundColor: '#4e73df',
                 order: 1,
                 datalabels: { display: false },
@@ -134,7 +150,7 @@ new Chart(document.getElementById('trendChart'), {
                 barPercentage: 0.4,
                 order: 0,
                 datalabels: {
-                    display: ctx => ctx.dataset.data[ctx.dataIndex] !== null,
+                    display: ctx => !isMobile && ctx.dataset.data[ctx.dataIndex] !== null,
                     anchor: 'end',
                     align: 'top',
                     color: '#555',
@@ -150,7 +166,10 @@ new Chart(document.getElementById('trendChart'), {
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-            legend: { position: 'bottom' },
+            legend: {
+                position: 'bottom',
+                labels: { boxWidth: isMobile ? 10 : 40, font: { size: isMobile ? 11 : 12 } }
+            },
             tooltip: {
                 callbacks: {
                     label: ctx => {
@@ -167,11 +186,20 @@ new Chart(document.getElementById('trendChart'), {
             }
         },
         scales: {
+            x: {
+                ticks: {
+                    maxRotation: isMobile ? 90 : 45,
+                    font: { size: isMobile ? 9 : 12 },
+                    autoSkip: true,
+                    maxTicksLimit: isMobile ? 8 : 20,
+                }
+            },
             y: {
                 beginAtZero: true,
                 grid: { color: 'rgba(0,0,0,0.05)' },
                 ticks: {
-                    callback: v => '¥' + v.toLocaleString(),
+                    callback: v => '¥' + (v >= 10000 ? (v/10000).toFixed(1) + 'w' : v.toLocaleString()),
+                    font: { size: isMobile ? 10 : 12 },
                 },
             }
         }
@@ -191,7 +219,12 @@ new Chart(document.getElementById('pieChart'), {
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom' } }
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: { boxWidth: isMobile ? 10 : 40, font: { size: isMobile ? 11 : 12 } }
+            }
+        }
     }
 });
 
@@ -210,8 +243,23 @@ new Chart(document.getElementById('yearlyChart'), {
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom' } },
-        scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: { boxWidth: isMobile ? 10 : 40, font: { size: isMobile ? 11 : 12 } }
+            }
+        },
+        scales: {
+            x: { stacked: true, ticks: { font: { size: isMobile ? 10 : 12 } } },
+            y: {
+                stacked: true,
+                beginAtZero: true,
+                ticks: {
+                    callback: v => '¥' + (v >= 10000 ? (v/10000).toFixed(0) + 'w' : v.toLocaleString()),
+                    font: { size: isMobile ? 10 : 12 },
+                }
+            }
+        }
     }
 });
 </script>
