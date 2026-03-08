@@ -39,6 +39,9 @@ MORTGAGE_API_KEY=change-me-your-api-key
 MORTGAGE_WEB_USER=admin
 MORTGAGE_WEB_PASS=change-me
 
+# TG whitelist: comma-separated user IDs for auto-login tokens
+TG_WHITELIST=1308785881
+
 # Scheduler: 1=enable, 0=disable (disable if running multiple workers)
 SCHEDULER_ENABLED=1
 EOF

@@ -31,6 +31,7 @@ mortgage-tracker/
 ├── .gitignore
 ├── routes/
 │   ├── __init__.py           # Blueprint 注册
+│   ├── auth.py               # 登录 / 退出路由（session 管理）
 │   ├── views.py              # 页面路由（仪表盘、账单、设置）
 │   └── api.py                # REST API（X-API-Key 认证，统一 JSON 响应格式）
 ├── services/
@@ -38,7 +39,8 @@ mortgage-tracker/
 │   ├── payment_service.py    # 业务逻辑（CRUD、统计、金额变更检测）
 │   └── scheduler_service.py  # APScheduler 自动月供记录
 ├── templates/
-│   ├── base.html             # 公共布局（响应式导航栏）
+│   ├── base.html             # 公共布局（响应式导航栏 + 退出按钮）
+│   ├── login.html            # 登录页面
 │   ├── index.html            # 统计仪表盘（Chart.js，移动端适配）
 │   ├── records.html          # 账单列表（桌面表格 / 手机卡片双视图）
 │   └── settings.html         # 定时任务配置 + CSV 导入
@@ -95,7 +97,8 @@ mortgage-tracker/
 
 ### 安全特性
 
-- **Web 界面 Basic Auth**：设置 `MORTGAGE_WEB_USER` + `MORTGAGE_WEB_PASS` 环境变量即启用，API 路由不受影响
+- **Web 登录页面**：设置 `MORTGAGE_WEB_USER` + `MORTGAGE_WEB_PASS` 环境变量即启用，未登录访问任何页面会跳转到 `/login`。登录后 session 保持 30 天。导航栏右侧显示"退出"按钮。未配置用户名密码时免登录（本地开发）。
+- **TG 白名单免密登录**：Bot 调用 `POST /api/v1/auth/token` 为白名单用户生成一次性链接，用户点击即自动登录，无需输密码。Token 5 分钟过期，用后即毁。白名单通过环境变量 `TG_WHITELIST` 配置（逗号分隔），默认含 `1308785881`。
 - **API Key 认证**：所有 `/api/v1/*` 端点需 `X-API-Key` 请求头
 - **日志审计**：RotatingFileHandler，5MB 自动轮转保留 3 份，写入 `logs/app.log`
 
@@ -150,6 +153,9 @@ MORTGAGE_API_KEY=你的API密钥    # TG Bot 调用时使用
 # Web 界面登录（留空则不需要登录）
 MORTGAGE_WEB_USER=admin
 MORTGAGE_WEB_PASS=你的密码
+
+# TG 白名单（逗号分隔，这些用户可通过 Bot 生成免密登录链接）
+TG_WHITELIST=1308785881
 
 # 定时任务开关（1=开启，单 worker 模式安全）
 SCHEDULER_ENABLED=1
@@ -271,6 +277,19 @@ curl -X PUT -H "X-API-Key: your-key" -H "Content-Type: application/json" \
   http://localhost:5001/api/v1/scheduler/config
 ```
 
+### TG 免密登录
+
+```bash
+# Bot 为白名单用户生成一次性登录链接（5 分钟有效，用后即毁）
+curl -X POST -H "X-API-Key: your-key" -H "Content-Type: application/json" \
+  -d '{"tg_id":"1308785881","next":"/records"}' \
+  http://localhost:5001/api/v1/auth/token
+# 返回: {"ok":true,"data":{"url":"/auth/tg?token=xxx"}}
+
+# 非白名单用户 → 403
+# 拼接完整 URL 发给用户：https://your-domain.com/auth/tg?token=xxx
+```
+
 ### Telegram Bot 对接
 
 Bot 通过 REST API 与本应用通信，典型交互场景：
@@ -285,8 +304,9 @@ Bot → PUT /api/v1/scheduler/config {"current_monthly_amount":4100}
 Bot → 用户: "已更新，下次自动记账金额为 ¥4,100"
 
 用户: "查看最近账单"
-Bot → GET /api/v1/payments?limit=5
-Bot → 用户: 返回最近 5 条记录摘要
+Bot → POST /api/v1/auth/token {"tg_id":"1308785881","next":"/"}
+Bot → 用户: "点击查看：https://your-domain.com/auth/tg?token=xxx"
+     （用户点击链接 → 自动登录 → 进入仪表盘）
 
 用户: "删除刚刚的记录"
 Bot → DELETE /api/v1/payments/{last_id}

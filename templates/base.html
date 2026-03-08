@@ -26,6 +26,13 @@
                         <a class="nav-link {% if request.endpoint == 'views.settings' %}active{% endif %}" href="/settings">设置</a>
                     </li>
                 </ul>
+                {% if session.get('logged_in') %}
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link text-secondary" href="/logout">退出</a>
+                    </li>
+                </ul>
+                {% endif %}
             </div>
         </div>
     </nav>

@@ -106,3 +106,26 @@ def update_scheduler_config():
         return api_error('请求体必须为 JSON')
     config = payment_service.update_scheduler_config(data)
     return api_response(config.to_dict())
+
+
+@api_bp.route('/auth/token', methods=['POST'])
+@require_api_key
+def create_auth_token():
+    """Generate a one-time login URL for a whitelisted TG user.
+
+    Request: {"tg_id": "1308785881", "next": "/records"}
+    Response: {"url": "/auth/tg?token=xxx"}
+    """
+    data = request.get_json(silent=True)
+    if not data or 'tg_id' not in data:
+        return api_error('tg_id 为必填字段')
+
+    tg_id = str(data['tg_id'])
+    if tg_id not in Config.TG_WHITELIST:
+        return api_error('该用户不在白名单中', 403)
+
+    from routes.auth import create_tg_token
+    next_url = data.get('next', '/')
+    token = create_tg_token(tg_id, next_url)
+    url = f"/auth/tg?token={token}"
+    return api_response({'url': url})

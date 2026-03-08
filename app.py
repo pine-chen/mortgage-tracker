@@ -29,37 +29,24 @@ def create_app():
     with app.app_context():
         db.create_all()
 
-    # Web UI basic auth (skip for API routes)
+    # Session-based login for Web UI
     if Config.WEB_USERNAME and Config.WEB_PASSWORD:
-        from functools import wraps
-        from flask import request, Response
-
-        def check_web_auth(f):
-            @wraps(f)
-            def decorated(*args, **kwargs):
-                auth = request.authorization
-                if not auth or auth.username != Config.WEB_USERNAME or auth.password != Config.WEB_PASSWORD:
-                    return Response(
-                        '需要登录', 401,
-                        {'WWW-Authenticate': 'Basic realm="Mortgage Tracker"'}
-                    )
-                return f(*args, **kwargs)
-            return decorated
+        from flask import request, redirect, url_for, session
 
         @app.before_request
         def require_web_login():
+            # API uses X-API-Key, skip session auth
             if request.path.startswith('/api/'):
-                return  # API uses X-API-Key, skip basic auth
-            if request.path.startswith('/static/'):
                 return
-            auth = request.authorization
-            if not auth or auth.username != Config.WEB_USERNAME or auth.password != Config.WEB_PASSWORD:
-                return Response(
-                    '需要登录', 401,
-                    {'WWW-Authenticate': 'Basic realm="Mortgage Tracker"'}
-                )
+            # Static files, login page, and TG token login are always accessible
+            if request.path.startswith('/static/') or request.path in ('/login', '/auth/tg'):
+                return
+            if not session.get('logged_in'):
+                return redirect(url_for('auth.login', next=request.path))
 
     from routes import views_bp, api_bp
+    from routes.auth import auth_bp
+    app.register_blueprint(auth_bp)
     app.register_blueprint(views_bp)
     app.register_blueprint(api_bp)
 
