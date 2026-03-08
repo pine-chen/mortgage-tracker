@@ -1,18 +1,18 @@
 #!/bin/bash
-# mortgage-tracker deploy script
-# Usage: ./deploy.sh [init|update|start|stop|restart|status|backup|logs]
+# mortgage-tracker deploy script (PM2 + Gunicorn)
+# Usage: ./deploy.sh [init|update|start|stop|restart|status|backup|logs|import]
 
 set -e
 
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="$APP_DIR/venv"
 APP_NAME="mortgage-tracker"
-PORT=5001
-BIND="127.0.0.1:$PORT"
 
 # Load .env if exists
 if [ -f "$APP_DIR/.env" ]; then
-    export $(grep -v '^#' "$APP_DIR/.env" | xargs)
+    set -a
+    source "$APP_DIR/.env"
+    set +a
 fi
 
 ensure_venv() {
@@ -45,6 +45,11 @@ EOF
             echo "Created .env — please edit it with your values"
         fi
 
+        # Check PM2
+        if ! command -v pm2 &>/dev/null; then
+            echo "WARNING: pm2 not found. Install with: npm install -g pm2"
+        fi
+
         echo "=== Done. Next: edit .env, then run: ./deploy.sh start ==="
         ;;
 
@@ -59,43 +64,28 @@ EOF
 
     start)
         ensure_venv
-        echo "=== Starting $APP_NAME on $BIND ==="
-        # Single worker (scheduler safe), preload app
         cd "$APP_DIR"
-        gunicorn \
-            -w 1 \
-            -b "$BIND" \
-            --access-logfile "$APP_DIR/logs/access.log" \
-            --error-logfile "$APP_DIR/logs/error.log" \
-            --pid "$APP_DIR/data/gunicorn.pid" \
-            --daemon \
-            "app:create_app()"
-        echo "Started. PID: $(cat "$APP_DIR/data/gunicorn.pid")"
+        echo "=== Starting $APP_NAME via PM2 ==="
+        pm2 start ecosystem.config.js
+        pm2 save
+        echo "=== Started. Run 'pm2 status' to verify ==="
         ;;
 
     stop)
-        if [ -f "$APP_DIR/data/gunicorn.pid" ]; then
-            echo "=== Stopping $APP_NAME ==="
-            kill $(cat "$APP_DIR/data/gunicorn.pid") 2>/dev/null || true
-            rm -f "$APP_DIR/data/gunicorn.pid"
-            echo "Stopped."
-        else
-            echo "Not running (no PID file)."
-        fi
+        echo "=== Stopping $APP_NAME ==="
+        pm2 stop "$APP_NAME" 2>/dev/null || echo "Not running."
         ;;
 
     restart)
-        $0 stop
-        sleep 1
-        $0 start
+        ensure_venv
+        cd "$APP_DIR"
+        echo "=== Restarting $APP_NAME ==="
+        pm2 restart ecosystem.config.js --update-env
+        pm2 save
         ;;
 
     status)
-        if [ -f "$APP_DIR/data/gunicorn.pid" ] && kill -0 $(cat "$APP_DIR/data/gunicorn.pid") 2>/dev/null; then
-            echo "$APP_NAME is running (PID: $(cat "$APP_DIR/data/gunicorn.pid"))"
-        else
-            echo "$APP_NAME is not running."
-        fi
+        pm2 show "$APP_NAME" 2>/dev/null || echo "$APP_NAME is not running."
         ;;
 
     backup)
@@ -110,7 +100,7 @@ EOF
         ;;
 
     logs)
-        tail -f "$APP_DIR/logs/app.log" "$APP_DIR/logs/access.log"
+        pm2 logs "$APP_NAME" --lines 50
         ;;
 
     import)
@@ -128,12 +118,12 @@ EOF
         echo ""
         echo "  init     - Create venv, install deps, generate .env template"
         echo "  update   - Git pull + reinstall deps"
-        echo "  start    - Start Gunicorn (daemon, single worker)"
-        echo "  stop     - Stop Gunicorn"
-        echo "  restart  - Stop + Start"
-        echo "  status   - Check if running"
+        echo "  start    - Start via PM2 (Gunicorn, single worker)"
+        echo "  stop     - Stop PM2 process"
+        echo "  restart  - Restart + reload .env"
+        echo "  status   - Show PM2 process info"
         echo "  backup   - Backup SQLite database"
-        echo "  logs     - Tail application logs"
+        echo "  logs     - Show PM2 logs (realtime)"
         echo "  import   - Import CSV file"
         ;;
 esac

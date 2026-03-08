@@ -24,7 +24,8 @@ mortgage-tracker/
 ├── config.py                 # 配置（数据库、API Key、Web 登录、定时任务）
 ├── models.py                 # 数据模型（Payment, SchedulerConfig）
 ├── import_csv.py             # CSV 导入脚本
-├── deploy.sh                 # 一键部署脚本（init/start/stop/restart/backup/logs）
+├── deploy.sh                 # 一键部署脚本（PM2 管理：init/start/stop/restart/backup/logs）
+├── ecosystem.config.js       # PM2 进程配置（Gunicorn 单 worker，自动加载 .env）
 ├── nginx.conf.example        # Nginx 反向代理配置模板
 ├── requirements.txt          # flask, flask-sqlalchemy, apscheduler, pandas, gunicorn
 ├── .gitignore
@@ -98,7 +99,19 @@ mortgage-tracker/
 - **API Key 认证**：所有 `/api/v1/*` 端点需 `X-API-Key` 请求头
 - **日志审计**：RotatingFileHandler，5MB 自动轮转保留 3 份，写入 `logs/app.log`
 
-## 服务器部署（腾讯云 Ubuntu）
+## 服务器部署（腾讯云 Ubuntu + PM2）
+
+> 使用 PM2 统一管理所有进程（与现有 OpenClaw 等服务一致），Gunicorn 仅作为 WSGI 服务器（不开 daemon），PM2 负责守护、重启、日志、开机自启。
+
+### 前置条件
+
+```bash
+# 确认 PM2 已安装
+pm2 --version
+
+# 如果没有：
+npm install -g pm2
+```
 
 ### 第一步：上传项目
 
@@ -122,7 +135,7 @@ chmod +x deploy.sh
 ./deploy.sh init
 ```
 
-这会：创建 Python 虚拟环境、安装依赖、生成 `.env` 配置模板。
+这会：创建 Python 虚拟环境、安装依赖（含 Gunicorn）、生成 `.env` 配置模板。
 
 ### 第三步：编辑配置
 
@@ -146,8 +159,15 @@ SCHEDULER_ENABLED=1
 
 ```bash
 ./deploy.sh import /path/to/房贷账单.csv   # 导入 CSV
-./deploy.sh start                          # 启动 Gunicorn（单 worker，daemon）
-./deploy.sh status                         # 检查状态
+./deploy.sh start                          # PM2 启动 Gunicorn
+./deploy.sh status                         # 查看状态
+```
+
+`start` 实际执行的是：
+
+```bash
+pm2 start ecosystem.config.js   # 读取 ecosystem.config.js 配置
+pm2 save                        # 持久化进程列表
 ```
 
 ### 第五步：Nginx 反向代理
@@ -169,20 +189,31 @@ certbot --nginx -d your-domain.com
 ### 第六步：开机自启 + 自动备份
 
 ```bash
+# PM2 开机自启（只需执行一次）
+pm2 startup
+# 执行它输出的 sudo 命令，然后：
+pm2 save
+
+# 自动备份（每周日凌晨）
 crontab -e
 # 添加：
-@reboot cd /opt/mortgage-tracker && ./deploy.sh start
 0 0 * * 0 cd /opt/mortgage-tracker && ./deploy.sh backup
 ```
 
 ### 日常运维
 
 ```bash
-./deploy.sh status    # 查看运行状态
-./deploy.sh logs      # 查看实时日志
-./deploy.sh restart   # 重启
+./deploy.sh status    # 查看进程详情
+./deploy.sh logs      # 实时日志（PM2 日志流）
+./deploy.sh restart   # 重启并重新加载 .env
+./deploy.sh stop      # 停止
 ./deploy.sh backup    # 手动备份数据库（保留最近 10 份）
 ./deploy.sh update    # git pull + 重装依赖
+
+# 也可以直接用 PM2 命令
+pm2 status            # 查看所有进程（含 OpenClaw 等）
+pm2 monit             # 实时监控 CPU/内存
+pm2 logs mortgage-tracker --lines 100
 ```
 
 ## REST API
